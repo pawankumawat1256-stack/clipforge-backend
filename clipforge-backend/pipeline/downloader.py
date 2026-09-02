@@ -3,6 +3,7 @@ Handles pulling a source video onto local disk, either from a YouTube
 (or other yt-dlp supported) URL, or from a file the user uploaded directly.
 """
 import os
+import shutil
 import uuid
 import yt_dlp
 
@@ -39,9 +40,16 @@ def download_from_url(url: str, out_dir: str) -> str:
     # with "Sign in to confirm you're not a bot". Passing browser cookies from
     # a real logged-in session works around this. Set COOKIES_FILE to the path
     # of a cookies.txt file (Netscape format) if you hit that error.
+    #
+    # yt-dlp writes updated session cookies back to this file after use, so
+    # it must be writable. Render's Secret Files are mounted read-only, so
+    # we copy the cookie file into the writable work directory first and
+    # point yt-dlp at that copy instead of the read-only original.
     cookies_path = os.environ.get("COOKIES_FILE")
     if cookies_path and os.path.exists(cookies_path):
-        ydl_opts["cookiefile"] = cookies_path
+        writable_cookies_path = os.path.join(out_dir, "cookies.txt")
+        shutil.copyfile(cookies_path, writable_cookies_path)
+        ydl_opts["cookiefile"] = writable_cookies_path
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
