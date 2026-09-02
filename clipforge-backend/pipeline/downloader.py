@@ -25,15 +25,16 @@ def download_from_url(url: str, out_dir: str) -> str:
         "no_warnings": True,
         # Respect a reasonable duration cap to avoid runaway processing costs.
         "match_filter": _duration_filter(max_minutes=45),
-        # YouTube's "web" client increasingly requires a Proof-of-Origin (PO)
-        # token that yt-dlp cannot mint without a JS runtime. The Android
-        # client historically doesn't require one, so spoofing it as the
-        # extractor client is the standard free workaround. This is an
-        # arms race with YouTube though - it can stop working if YouTube
-        # tightens Android-client requirements too, in which case yt-dlp
-        # will need updating again (or a PO-token provider plugin, which
-        # needs a JS runtime like Deno installed in the container).
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        # YouTube's "web" client requires a Proof-of-Origin (PO) token from
+        # datacenter IPs. The bgutil PO-Token provider (installed via
+        # Dockerfile + requirements.txt) runs a local HTTP server that
+        # yt-dlp auto-detects and uses to mint one, so "web" is viable again
+        # and gives the best format/quality selection. "android" is kept as
+        # a fallback in case the provider is temporarily unavailable.
+        # This remains an arms race with YouTube - if it stops working,
+        # check https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide for
+        # what's changed.
+        "extractor_args": {"youtube": {"player_client": ["web", "android"]}},
     }
 
     # YouTube increasingly blocks datacenter/cloud-host IPs (Render, AWS, etc.)
