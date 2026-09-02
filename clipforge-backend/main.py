@@ -193,3 +193,41 @@ def debug_cookies():
             else:
                 result["etc_secrets_exists"] = False
     return result
+
+
+@app.get("/api/debug-pot")
+def debug_pot():
+    """
+    TEMPORARY debug endpoint - checks whether the bgutil PO-Token provider
+    HTTP server is reachable, and asks yt-dlp (verbosely) whether it can
+    see and use it. Remove once PO tokens are confirmed working.
+    """
+    import subprocess
+    import urllib.request
+    result = {}
+
+    # 1) Is the provider server itself up on port 4416?
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:4416/ping", timeout=3) as resp:
+            result["provider_server_reachable"] = True
+            result["provider_server_status"] = resp.status
+    except Exception as e:
+        result["provider_server_reachable"] = False
+        result["provider_server_error"] = str(e)
+
+    # 2) Ask yt-dlp what PO-Token providers it sees (verbose debug line).
+    try:
+        proc = subprocess.run(
+            ["yt-dlp", "-v", "--simulate", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+            capture_output=True, text=True, timeout=30,
+        )
+        output = proc.stdout + proc.stderr
+        pot_lines = [line for line in output.splitlines() if "pot" in line.lower() or "PO Token" in line]
+        result["yt_dlp_pot_debug_lines"] = pot_lines
+        result["yt_dlp_returncode"] = proc.returncode
+        if not pot_lines:
+            result["full_output_tail"] = output[-1500:]
+    except Exception as e:
+        result["yt_dlp_check_error"] = str(e)
+
+    return result
