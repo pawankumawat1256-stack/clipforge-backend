@@ -10,6 +10,7 @@ Deploy: see README.md (Render/Railway free tier instructions).
 """
 import os
 import shutil
+import subprocess
 import uuid
 import traceback
 from datetime import datetime, timedelta
@@ -231,3 +232,30 @@ def debug_pot():
         result["yt_dlp_check_error"] = str(e)
 
     return result
+
+
+@app.get("/api/debug-verbose")
+def debug_verbose(url: str):
+    """
+    TEMPORARY debug endpoint - runs yt-dlp verbosely against a REAL video
+    URL (without downloading it) so we can see exactly which client was
+    tried, whether cookies were loaded, and whether a PO token was used.
+    Remove once the bot-check issue is resolved.
+    """
+    cookies_path = os.environ.get("COOKIES_FILE")
+    cmd = ["yt-dlp", "-v", "--skip-download", "--extractor-args", "youtube:player_client=web,android"]
+    if cookies_path and os.path.exists(cookies_path):
+        writable = "/tmp/debug_cookies.txt"
+        shutil.copyfile(cookies_path, writable)
+        cmd += ["--cookies", writable]
+    cmd.append(url)
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=45)
+        output = proc.stdout + proc.stderr
+        return {
+            "returncode": proc.returncode,
+            "output_tail": output[-4000:],
+        }
+    except Exception as e:
+        return {"error": str(e)}
