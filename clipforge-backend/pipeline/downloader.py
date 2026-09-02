@@ -24,7 +24,24 @@ def download_from_url(url: str, out_dir: str) -> str:
         "no_warnings": True,
         # Respect a reasonable duration cap to avoid runaway processing costs.
         "match_filter": _duration_filter(max_minutes=45),
+        # YouTube's "web" client increasingly requires a Proof-of-Origin (PO)
+        # token that yt-dlp cannot mint without a JS runtime. The Android
+        # client historically doesn't require one, so spoofing it as the
+        # extractor client is the standard free workaround. This is an
+        # arms race with YouTube though - it can stop working if YouTube
+        # tightens Android-client requirements too, in which case yt-dlp
+        # will need updating again (or a PO-token provider plugin, which
+        # needs a JS runtime like Deno installed in the container).
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
+
+    # YouTube increasingly blocks datacenter/cloud-host IPs (Render, AWS, etc.)
+    # with "Sign in to confirm you're not a bot". Passing browser cookies from
+    # a real logged-in session works around this. Set COOKIES_FILE to the path
+    # of a cookies.txt file (Netscape format) if you hit that error.
+    cookies_path = os.environ.get("COOKIES_FILE")
+    if cookies_path and os.path.exists(cookies_path):
+        ydl_opts["cookiefile"] = cookies_path
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
