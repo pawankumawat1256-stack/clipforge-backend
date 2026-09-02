@@ -32,7 +32,12 @@ RUN mkdir -p work/sources work/clips
 
 EXPOSE 8000
 
-# Start the PO-Token provider server in the background, then start the API.
-# The provider takes a couple seconds to come up; yt-dlp calls it lazily
-# per-request so a fixed startup race isn't a practical concern here.
-CMD ["/bin/sh", "-c", "node /opt/bgutil-provider/server/build/main.js & uvicorn main:app --host 0.0.0.0 --port 8000"]
+# Start the PO-Token provider server in the background on a FIXED port
+# (4416) that is NOT influenced by Render's $PORT env var - Node apps
+# commonly auto-read process.env.PORT, which would otherwise make this
+# server hijack the port Render routes public traffic to, instead of the
+# FastAPI app. Explicitly unsetting PORT for that one process, and passing
+# --port 4416 to be doubly sure, keeps the two servers on separate ports.
+# The main API binds to $PORT (falls back to 8000 locally) since Render
+# assigns that dynamically and expects the app to listen there.
+CMD ["/bin/sh", "-c", "env -u PORT node /opt/bgutil-provider/server/build/main.js --port 4416 & uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
