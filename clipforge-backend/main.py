@@ -162,3 +162,34 @@ def get_usage(user_id: str):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/debug-cookies")
+def debug_cookies():
+    """
+    TEMPORARY debug endpoint - checks whether the cookies file is present
+    and readable, without exposing the actual cookie values.
+    Remove this endpoint once cookies are confirmed working.
+    """
+    cookies_path = os.environ.get("COOKIES_FILE", "not set")
+    result = {"COOKIES_FILE_env": cookies_path}
+
+    if cookies_path and cookies_path != "not set":
+        exists = os.path.exists(cookies_path)
+        result["file_exists"] = exists
+        if exists:
+            size = os.path.getsize(cookies_path)
+            result["file_size_bytes"] = size
+            with open(cookies_path, "r", errors="replace") as f:
+                first_line = f.readline().strip()
+                line_count = 1 + sum(1 for _ in f)
+            result["first_line"] = first_line
+            result["total_lines"] = line_count
+        else:
+            # Show what IS in /etc/secrets/ to help diagnose
+            secrets_dir = "/etc/secrets"
+            if os.path.exists(secrets_dir):
+                result["files_in_etc_secrets"] = os.listdir(secrets_dir)
+            else:
+                result["etc_secrets_exists"] = False
+    return result
